@@ -26,18 +26,18 @@ module core #(
     // Program Memory
     output reg program_mem_read_valid,
     output reg [PROGRAM_MEM_ADDR_BITS-1:0] program_mem_read_address,
-    input reg program_mem_read_ready,
-    input reg [PROGRAM_MEM_DATA_BITS-1:0] program_mem_read_data,
+    input wire program_mem_read_ready,
+    input wire [PROGRAM_MEM_DATA_BITS-1:0] program_mem_read_data,
 
     // Data Memory
     output reg [THREADS_PER_BLOCK-1:0] data_mem_read_valid,
     output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_read_address [THREADS_PER_BLOCK-1:0],
-    input reg [THREADS_PER_BLOCK-1:0] data_mem_read_ready,
-    input reg [DATA_MEM_DATA_BITS-1:0] data_mem_read_data [THREADS_PER_BLOCK-1:0],
+    input wire [THREADS_PER_BLOCK-1:0] data_mem_read_ready,
+    input wire [DATA_MEM_DATA_BITS-1:0] data_mem_read_data [THREADS_PER_BLOCK-1:0],
     output reg [THREADS_PER_BLOCK-1:0] data_mem_write_valid,
     output reg [DATA_MEM_ADDR_BITS-1:0] data_mem_write_address [THREADS_PER_BLOCK-1:0],
     output reg [DATA_MEM_DATA_BITS-1:0] data_mem_write_data [THREADS_PER_BLOCK-1:0],
-    input reg [THREADS_PER_BLOCK-1:0] data_mem_write_ready
+    input wire [THREADS_PER_BLOCK-1:0] data_mem_write_ready
 );
     // State
     reg [2:0] core_state;
@@ -112,7 +112,7 @@ module core #(
 
     // Scheduler
     scheduler #(
-        .THREADS_PER_BLOCK(THREADS_PER_BLOCK),
+        .THREADS_PER_BLOCK(THREADS_PER_BLOCK)
     ) scheduler_instance (
         .clk(clk),
         .reset(reset),
@@ -171,7 +171,7 @@ module core #(
             registers #(
                 .THREADS_PER_BLOCK(THREADS_PER_BLOCK),
                 .THREAD_ID(i),
-                .DATA_BITS(DATA_MEM_DATA_BITS),
+                .DATA_BITS(DATA_MEM_DATA_BITS)
             ) register_instance (
                 .clk(clk),
                 .reset(reset),
