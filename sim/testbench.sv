@@ -199,4 +199,9 @@ module tb_matmul;
         end
     end
 
+    initial begin
+        $fsdbDumpfile("simv.fsdb");         
+        $fsdbDumpvars(0, tb_matmul);        
+    end
+
 endmodule

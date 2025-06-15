@@ -1,5 +1,6 @@
 */**/__pycache__
-build/
+build/cocotb/*
+build/simvcs/*
 test/logs/*
 !.gitkeep
 gds/**/*.gltf
