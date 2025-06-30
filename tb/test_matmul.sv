@@ -2,7 +2,76 @@ module test_matmul();
 
 framework testcase();
 
-reg [15:0] init_program_mem [] = '{
+function automatic generate_data_mem(
+  input int M,
+  input int N,
+  input int K,
+  ref reg[7:0] init_data_mem [],
+  ref reg[7:0] golden_data_mem []
+  );
+
+  int A_size = M * N;
+  int B_size = N * K;
+  int C_size = M * K;
+
+  reg [7:0] A[] = new[A_size];
+  reg [7:0] B[] = new[B_size];
+  reg [7:0] C[] = new[C_size];
+
+  for (int i = 0; i < A_size; i += 1) begin
+    A[i] = $urandom_range(0, 255);
+  end
+  for (int i = 0; i < B_size; i += 1) begin
+    B[i] = $urandom_range(0, 255);
+  end
+  for (int m = 0 ; m < M; m += 1) begin
+    for (int k = 0; k < K; k += 1) begin
+      int c = m * K + k;
+      C[c] = 0;
+      for (int n = 0; n < N; n += 1) begin
+        int a = m * N + n;
+        int b = n * K + k;
+        C[c] += A[a] * B[b];
+      end
+    end
+  end
+  
+  init_data_mem = new[3 + A_size + B_size];
+  golden_data_mem = new[3 + A_size + B_size + C_size];
+
+  init_data_mem[0] = M;
+  init_data_mem[1] = N;
+  init_data_mem[2] = K;
+  golden_data_mem[0] = M;
+  golden_data_mem[1] = N;
+  golden_data_mem[2] = K;
+  for (int i = 0; i < A_size; i += 1) begin
+    init_data_mem[3 + i] = A[i];
+    golden_data_mem[3 + i] = A[i];
+  end
+  for (int i = 0; i < B_size; i += 1) begin
+    init_data_mem[3 + A_size + i] = B[i];
+    golden_data_mem[3 + A_size + i] = B[i];
+  end
+  for (int i = 0; i < C_size; i += 1) begin
+    golden_data_mem[3 + A_size + B_size + i] = C[i];
+  end
+
+endfunction
+
+int M = 3;
+int N = 4;
+int K = 5;
+reg [7:0] software_thread_num;
+reg [15:0] init_program_mem[];
+reg [7:0] init_data_mem[];
+reg [7:0] golden_data_mem[];
+int return_code = 0;
+
+initial begin
+  $srandom(0);
+  init_program_mem = new[35];
+  init_program_mem[0:34]= '{
     'b0101_0000_1101_1110, // MUL R0, %blockIdx, %blockDim
     'b0011_0000_0000_1111, // ADD R0, R0, %threadIdx         ; i = blockIdx * blockDim + threadIdx
     'b1001_0001_0000_0001, // CONST R1, #1                   ; increment
@@ -39,57 +108,21 @@ reg [15:0] init_program_mem [] = '{
     'b0011_1001_0111_0000, // ADD R9, R7, R0
     'b1000_0000_1001_1000, // STR R9, R8                     ; store C[i] = acc in global memory
     'b1111_0000_0000_0000  // RET                            ; end of kernel
-};
+  };
 
-reg [7:0] init_data_mem [] = '{
-    // M, N, K
-    'd3,
-    'd4,
-    'd5,
+  generate_data_mem(
+    M, N, K,
+    init_data_mem,
+    golden_data_mem
+  );
+  
+  software_thread_num = M * K;
 
-    // Matrix A (M * N)
-    'd0, 'd1, 'd2, 'd3,
-    'd4, 'd5, 'd6, 'd7,
-    'd8, 'd7, 'd6, 'd5,
-
-    // Matrix B (N * K)
-    'd0, 'd1, 'd2, 'd3, 'd4,
-    'd5, 'd6, 'd7, 'd8, 'd9,
-    'd0, 'd1, 'd2, 'd3, 'd4,
-    'd5, 'd6, 'd7, 'd8, 'd9
-};
-
-reg [7:0] golden_data_mem [] = '{
-    // M, N, K
-    'd3, 'd4, 'd5,
-
-    // Matrix A (M * N)
-    'd0, 'd1, 'd2, 'd3,
-    'd4, 'd5, 'd6, 'd7,
-    'd8, 'd7, 'd6, 'd5,
-
-    // Matrix B (N * K)
-    'd0, 'd1, 'd2, 'd3, 'd4,
-    'd5, 'd6, 'd7, 'd8, 'd9,
-    'd0, 'd1, 'd2, 'd3, 'd4,
-    'd5, 'd6, 'd7, 'd8, 'd9,
-
-    // Matrix C (M * K)
-    'd20, 'd26, 'd32, 'd38, 'd44,
-    'd60, 'd82, 'd104, 'd126, 'd148,
-    'd60, 'd86, 'd112, 'd138, 'd164
-};
-
-reg [7:0] software_thread_num = 8'd15;
-
-int return_code = 0;
-
-initial begin
   testcase.test_kernel(
     init_program_mem,
     init_data_mem,
     golden_data_mem,
-    8'd8,
+    software_thread_num,
     return_code
   );
 
