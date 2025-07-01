@@ -13,7 +13,7 @@ module gpu #(
     parameter DATA_MEM_NUM_CHANNELS = 4,     // Number of concurrent channels for sending requests to data memory
     parameter PROGRAM_MEM_ADDR_BITS = 8,     // Number of bits in program memory address (256 rows)
     parameter PROGRAM_MEM_DATA_BITS = 16,    // Number of bits in program memory value (16 bit instruction)
-    parameter PROGRAM_MEM_NUM_CHANNELS = 1,  // Number of concurrent channels for sending requests to program memory
+    parameter PROGRAM_MEM_NUM_CHANNELS = 2,  // Number of concurrent channels for sending requests to program memory
     parameter NUM_CORES = 2,                 // Number of cores to include in this GPU
     parameter THREADS_PER_BLOCK = 4          // Number of threads to handle per block (determines the compute resources of each core)
 ) (
@@ -115,30 +115,59 @@ module gpu #(
     controller #(
         .ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
         .DATA_BITS(PROGRAM_MEM_DATA_BITS),
-        .NUM_CONSUMERS(NUM_FETCHERS),
-        .NUM_CHANNELS(PROGRAM_MEM_NUM_CHANNELS),
+        .NUM_CONSUMERS(NUM_FETCHERS-1),
+        .NUM_CHANNELS(PROGRAM_MEM_NUM_CHANNELS-1),
         .WRITE_ENABLE(0)
     ) program_memory_controller (
         .clk(clk),
         .reset(reset),
 
-        .consumer_read_valid(fetcher_read_valid),
-        .consumer_read_address(fetcher_read_address),
-        .consumer_read_ready(fetcher_read_ready),
-        .consumer_read_data(fetcher_read_data),
-	    .consumer_write_valid(),
+        .consumer_read_valid(fetcher_read_valid[NUM_FETCHERS-1:1]),
+        .consumer_read_address(fetcher_read_address[NUM_FETCHERS-1:1]),
+        .consumer_read_ready(fetcher_read_ready[NUM_FETCHERS-1:1]),
+        .consumer_read_data(fetcher_read_data[NUM_FETCHERS-1:1]),
+        .consumer_write_valid(),
         .consumer_write_address(),
         .consumer_write_data(),
         .consumer_write_ready(),
 
-        .mem_read_valid(program_mem_read_valid),
-        .mem_read_address(program_mem_read_address),
-        .mem_read_ready(program_mem_read_ready),
-        .mem_read_data(program_mem_read_data),
-	    .mem_write_valid(),
+        .mem_read_valid(program_mem_read_valid[PROGRAM_MEM_NUM_CHANNELS-1:1]),
+        .mem_read_address(program_mem_read_address[PROGRAM_MEM_NUM_CHANNELS-1:1]),
+        .mem_read_ready(program_mem_read_ready[PROGRAM_MEM_NUM_CHANNELS-1:1]),
+        .mem_read_data(program_mem_read_data[PROGRAM_MEM_NUM_CHANNELS-1:1]),
+        .mem_write_valid(),
         .mem_write_address(),
         .mem_write_data(),
         .mem_write_ready()
+    );
+
+    dm_cache #(
+        .ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
+        .DATA_BITS(PROGRAM_MEM_DATA_BITS),
+        .INDEX_BITS(3),
+        .OFFSET_BITS(2)
+    ) program_cache (
+        .clk(clk),
+        .reset(reset),
+
+        .consumer_read_valid(fetcher_read_valid[0]),
+        .consumer_read_address(fetcher_read_address[0]),
+        .consumer_read_ready(fetcher_read_ready[0]),
+        .consumer_read_data(fetcher_read_data[0]),
+        .consumer_write_valid(),
+        .consumer_write_address(),
+        .consumer_write_data(),
+        .consumer_write_ready(),
+
+        .mem_read_valid(program_mem_read_valid[0]),
+        .mem_read_address(program_mem_read_address[0]),
+        .mem_read_ready(program_mem_read_ready[0]),
+        .mem_read_data(program_mem_read_data[0]),
+        .mem_write_valid(),
+        .mem_write_address(),
+        .mem_write_data(),
+        .mem_write_ready()
+
     );
 
     // Dispatcher

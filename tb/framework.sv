@@ -2,7 +2,7 @@ module framework #(
   parameter DATA_MEM_ADDR_BITS = 8,
   parameter DATA_MEM_NUM_CHANNELS = 4,
   parameter PROGRAM_MEM_ADDR_BITS = 8,
-  parameter PROGRAM_MEM_NUM_CHANNELS = 1,
+  parameter PROGRAM_MEM_NUM_CHANNELS = 2,
   parameter NUM_CORES = 2,
   parameter THREADS_PER_BLOCK = 4
 ) ();
