@@ -10,7 +10,8 @@ module core #(
         parameter DATA_MEM_DATA_BITS = 8,
         parameter PROGRAM_MEM_ADDR_BITS = 8,
         parameter PROGRAM_MEM_DATA_BITS = 16,
-        parameter THREADS_PER_BLOCK = 4
+        parameter THREADS_PER_BLOCK = 4,
+        parameter CACHE_SIZE = 32
     ) (
         input wire clk,
         input wire reset,
@@ -74,7 +75,8 @@ module core #(
     // Fetcher
     fetcher #(
                 .PROGRAM_MEM_ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
-                .PROGRAM_MEM_DATA_BITS(PROGRAM_MEM_DATA_BITS)
+                .PROGRAM_MEM_DATA_BITS(PROGRAM_MEM_DATA_BITS),
+                .CACHE_SIZE(CACHE_SIZE)
             ) fetcher_instance (
                 .clk(clk),
                 .reset(reset),
