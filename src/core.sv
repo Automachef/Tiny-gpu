@@ -54,6 +54,12 @@ module core #(
     reg [7:0] lsu_out[THREADS_PER_BLOCK-1:0];
     wire [7:0] alu_out[THREADS_PER_BLOCK-1:0];
 
+    // Interface between LSU and data cache
+    wire [THREADS_PER_BLOCK-1:0] lsu_read_valid;
+    wire [DATA_MEM_ADDR_BITS-1:0] lsu_read_address [THREADS_PER_BLOCK-1:0];
+    reg [THREADS_PER_BLOCK-1:0] lsu_read_ready;
+    reg [DATA_MEM_DATA_BITS-1:0] lsu_read_data [THREADS_PER_BLOCK-1:0];
+
     // Decoded Instruction Signals
     reg [3:0] decoded_rd_address;
     reg [3:0] decoded_rs_address;
@@ -159,10 +165,10 @@ module core #(
                     .core_state(core_state),
                     .decoded_mem_read_enable(decoded_mem_read_enable),
                     .decoded_mem_write_enable(decoded_mem_write_enable),
-                    .mem_read_valid(data_mem_read_valid[i]),
-                    .mem_read_address(data_mem_read_address[i]),
-                    .mem_read_ready(data_mem_read_ready[i]),
-                    .mem_read_data(data_mem_read_data[i]),
+                    .mem_read_valid(lsu_read_valid[i]),
+                    .mem_read_address(lsu_read_address[i]),
+                    .mem_read_ready(lsu_read_ready[i]),
+                    .mem_read_data(lsu_read_data[i]),
                     .mem_write_valid(data_mem_write_valid[i]),
                     .mem_write_address(data_mem_write_address[i]),
                     .mem_write_data(data_mem_write_data[i]),
@@ -171,6 +177,24 @@ module core #(
                     .rt(rt[i]),
                     .lsu_state(lsu_state[i]),
                     .lsu_out(lsu_out[i])
+                );
+
+            // Data Cache (only for read operations)
+            dcache #(
+                    .DATA_MEM_ADDR_BITS(DATA_MEM_ADDR_BITS),
+                    .DATA_MEM_DATA_BITS(DATA_MEM_DATA_BITS),
+                    .CACHE_SIZE(CACHE_SIZE)
+                ) dcache_instance (
+                    .clk(clk),
+                    .reset(reset),
+                    .lsu_read_address(lsu_read_address[i]),
+                    .lsu_read_request(lsu_read_valid[i]),
+                    .lsu_read_valid(lsu_read_ready[i]),
+                    .lsu_read_data(lsu_read_data[i]),
+                    .mem_read_valid(data_mem_read_valid[i]),
+                    .mem_read_address(data_mem_read_address[i]),
+                    .mem_read_ready(data_mem_read_ready[i]),
+                    .mem_read_data(data_mem_read_data[i])
                 );
 
             // Register File
