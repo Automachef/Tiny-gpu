@@ -13,13 +13,13 @@ module icache #(
     input wire clk,
     input wire reset,
 
-    // Fetcher侧接口
+    // Fetcher side interface
     input wire [PROGRAM_MEM_ADDR_BITS-1:0] fetcher_address,
     input wire fetcher_read_request,
     output reg fetcher_read_valid,
     output reg [PROGRAM_MEM_DATA_BITS-1:0] fetcher_read_data,
 
-    // Program Memory侧接口
+    // Program Memory side interface
     output reg mem_read_valid,
     output reg [PROGRAM_MEM_ADDR_BITS-1:0] mem_read_address,
     input wire mem_read_ready,
@@ -33,6 +33,7 @@ module icache #(
     reg valid [CACHE_SIZE-1:0];
     reg [TAG_BITS-1:0] tags [CACHE_SIZE-1:0];
     reg [PROGRAM_MEM_DATA_BITS-1:0] data [CACHE_SIZE-1:0];
+    
     // Cache control signals
     reg [1:0] icache_state;
     localparam IDLE = 2'b00;

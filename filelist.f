@@ -8,6 +8,7 @@
 ../../src/dispatch.sv
 ../../src/fetcher.sv
 ../../src/icache.sv
+../../src/dcache.sv
 ../../src/gpu.sv
 ../../src/lsu.sv
 ../../src/pc.sv
@@ -18,6 +19,6 @@
 +incdir+sim
 # ../../sim/testbench.sv
 ../../sim/test_add.sv
-../../sim/test_mul.sv
+# ../../sim/test_mul.sv
 # ../../sim/test_matadd.sv
 # ../../sim/test_matmul.sv

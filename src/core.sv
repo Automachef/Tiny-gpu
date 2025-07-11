@@ -157,7 +157,13 @@ module core #(
                     .alu_out(alu_out[i])
                 );
 
-            // LSU
+            // Define the write interface from LSU to dcache (per thread)
+            wire [THREADS_PER_BLOCK-1:0] lsu_write_valid;
+            wire [DATA_MEM_ADDR_BITS-1:0] lsu_write_address [THREADS_PER_BLOCK-1:0];
+            wire [DATA_MEM_DATA_BITS-1:0] lsu_write_data [THREADS_PER_BLOCK-1:0];
+            wire [THREADS_PER_BLOCK-1:0] lsu_write_ready;
+
+            // LSU - Connect write operations to dcache instead of directly to memory
             lsu lsu_instance (
                     .clk(clk),
                     .reset(reset),
@@ -165,21 +171,23 @@ module core #(
                     .core_state(core_state),
                     .decoded_mem_read_enable(decoded_mem_read_enable),
                     .decoded_mem_write_enable(decoded_mem_write_enable),
+                    // Read interface remains unchanged
                     .mem_read_valid(lsu_read_valid[i]),
                     .mem_read_address(lsu_read_address[i]),
                     .mem_read_ready(lsu_read_ready[i]),
                     .mem_read_data(lsu_read_data[i]),
-                    .mem_write_valid(data_mem_write_valid[i]),
-                    .mem_write_address(data_mem_write_address[i]),
-                    .mem_write_data(data_mem_write_data[i]),
-                    .mem_write_ready(data_mem_write_ready[i]),
+                    // Write interface now connects to per-thread signals, later connected to dcache
+                    .mem_write_valid(lsu_write_valid[i]),
+                    .mem_write_address(lsu_write_address[i]),
+                    .mem_write_data(lsu_write_data[i]),
+                    .mem_write_ready(lsu_write_ready[i]),
                     .rs(rs[i]),
                     .rt(rt[i]),
                     .lsu_state(lsu_state[i]),
                     .lsu_out(lsu_out[i])
                 );
 
-            // Data Cache (only for read operations)
+            // Data Cache (supports both read and write operations with write-through policy)
             dcache #(
                     .DATA_MEM_ADDR_BITS(DATA_MEM_ADDR_BITS),
                     .DATA_MEM_DATA_BITS(DATA_MEM_DATA_BITS),
@@ -187,14 +195,26 @@ module core #(
                 ) dcache_instance (
                     .clk(clk),
                     .reset(reset),
+                    // Read interface - LSU side
                     .lsu_read_address(lsu_read_address[i]),
                     .lsu_read_request(lsu_read_valid[i]),
                     .lsu_read_valid(lsu_read_ready[i]),
                     .lsu_read_data(lsu_read_data[i]),
+                    // Read interface - Memory side
                     .mem_read_valid(data_mem_read_valid[i]),
                     .mem_read_address(data_mem_read_address[i]),
                     .mem_read_ready(data_mem_read_ready[i]),
-                    .mem_read_data(data_mem_read_data[i])
+                    .mem_read_data(data_mem_read_data[i]),
+                    // Write interface - LSU side (per thread)
+                    .lsu_write_address(lsu_write_address[i]),
+                    .lsu_write_request(lsu_write_valid[i]),
+                    .lsu_write_data(lsu_write_data[i]),
+                    .lsu_write_valid(lsu_write_ready[i]),
+                    // Write interface - Memory side (new)
+                    .mem_write_valid(data_mem_write_valid[i]),
+                    .mem_write_address(data_mem_write_address[i]),
+                    .mem_write_data(data_mem_write_data[i]),
+                    .mem_write_ready(data_mem_write_ready[i])
                 );
 
             // Register File
