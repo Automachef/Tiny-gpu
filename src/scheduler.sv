@@ -35,7 +35,13 @@ module scheduler #(
         input wire [$clog2(THREADS_PER_BLOCK):0] thread_count,
         // Execution State
         output reg [2:0] core_state,
-        output reg done
+        output reg done,
+
+        // Cache performance statistics input
+        input wire [31:0] cache_hit_count,
+        input wire [31:0] cache_miss_count,
+        input wire [31:0] cache_total_requests,
+        input wire [31:0] cache_memory_wait_cycles
     );
     localparam IDLE = 3'b000, // Waiting to start
                FETCH = 3'b001,       // Fetch instructions from program memory
@@ -145,6 +151,18 @@ module scheduler #(
                         $display("EXECUTE cycles: %d (%.1f%%)", execute_cycles, (execute_cycles * 100.0) / total_cycles);
                         $display("UPDATE cycles: %d (%.1f%%)", update_cycles, (update_cycles * 100.0) / total_cycles);
                         $display("Average cycles per instruction: %.2f", total_cycles * 1.0 / total_instructions);
+                        $display("--- FETCH STAGE ANALYSIS ---");
+                        $display("FETCH takes %.1f%% of total time, detailed analysis:", (fetch_cycles * 100.0) / total_cycles);
+                        $display("Instruction Cache Statistics:");
+                        $display("- Total requests: %d", cache_total_requests);
+                        $display("- Cache hits: %d", cache_hit_count);
+                        $display("- Cache misses: %d", cache_miss_count);
+                        if (cache_total_requests > 0) begin
+                            $display("- Hit rate: %.1f%%", (cache_hit_count * 100.0) / cache_total_requests);
+                            $display("- Miss rate: %.1f%%", (cache_miss_count * 100.0) / cache_total_requests);
+                        end
+                        $display("- Memory wait cycles: %d", cache_memory_wait_cycles);
+                        $display("- Average wait per miss: %.1f cycles", cache_miss_count > 0 ? (cache_memory_wait_cycles * 1.0) / cache_miss_count : 0.0);
                         $display("========================================");
                     end
                     else begin

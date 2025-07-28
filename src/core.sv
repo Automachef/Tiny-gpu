@@ -78,6 +78,12 @@ module core #(
     reg decoded_pc_mux;                     // Select source of next PC
     reg decoded_ret;
 
+    // Cache performance statistics from fetcher
+    wire [31:0] cache_hit_count;
+    wire [31:0] cache_miss_count;
+    wire [31:0] cache_total_requests;
+    wire [31:0] cache_memory_wait_cycles;
+
     // Fetcher
     fetcher #(
                 .PROGRAM_MEM_ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
@@ -93,7 +99,11 @@ module core #(
                 .mem_read_ready(program_mem_read_ready),
                 .mem_read_data(program_mem_read_data),
                 .fetcher_state(fetcher_state),
-                .instruction(instruction)
+                .instruction(instruction),
+                .cache_hit_count(cache_hit_count),
+                .cache_miss_count(cache_miss_count),
+                .cache_total_requests(cache_total_requests),
+                .cache_memory_wait_cycles(cache_memory_wait_cycles)
             );
 
     // Decoder
@@ -135,7 +145,11 @@ module core #(
                   .current_pc(current_pc),
                   .next_pc(next_pc),
                   .thread_count(thread_count),
-                  .done(scheduler_done)
+                  .done(scheduler_done),
+                  .cache_hit_count(cache_hit_count),
+                  .cache_miss_count(cache_miss_count),
+                  .cache_total_requests(cache_total_requests),
+                  .cache_memory_wait_cycles(cache_memory_wait_cycles)
               );
 
     assign done = (thread_count == 0) ? 1'b1 : scheduler_done;
@@ -189,33 +203,33 @@ module core #(
 
             // Data Cache (supports both read and write operations with write-through policy)
             dcache #(
-                    .DATA_MEM_ADDR_BITS(DATA_MEM_ADDR_BITS),
-                    .DATA_MEM_DATA_BITS(DATA_MEM_DATA_BITS),
-                    .CACHE_SIZE(CACHE_SIZE)
-                ) dcache_instance (
-                    .clk(clk),
-                    .reset(reset),
-                    // Read interface - LSU side
-                    .lsu_read_address(lsu_read_address[i]),
-                    .lsu_read_request(lsu_read_valid[i]),
-                    .lsu_read_valid(lsu_read_ready[i]),
-                    .lsu_read_data(lsu_read_data[i]),
-                    // Read interface - Memory side
-                    .mem_read_valid(data_mem_read_valid[i]),
-                    .mem_read_address(data_mem_read_address[i]),
-                    .mem_read_ready(data_mem_read_ready[i]),
-                    .mem_read_data(data_mem_read_data[i]),
-                    // Write interface - LSU side (per thread)
-                    .lsu_write_address(lsu_write_address[i]),
-                    .lsu_write_request(lsu_write_valid[i]),
-                    .lsu_write_data(lsu_write_data[i]),
-                    .lsu_write_valid(lsu_write_ready[i]),
-                    // Write interface - Memory side (new)
-                    .mem_write_valid(data_mem_write_valid[i]),
-                    .mem_write_address(data_mem_write_address[i]),
-                    .mem_write_data(data_mem_write_data[i]),
-                    .mem_write_ready(data_mem_write_ready[i])
-                );
+                       .DATA_MEM_ADDR_BITS(DATA_MEM_ADDR_BITS),
+                       .DATA_MEM_DATA_BITS(DATA_MEM_DATA_BITS),
+                       .CACHE_SIZE(CACHE_SIZE)
+                   ) dcache_instance (
+                       .clk(clk),
+                       .reset(reset),
+                       // Read interface - LSU side
+                       .lsu_read_address(lsu_read_address[i]),
+                       .lsu_read_request(lsu_read_valid[i]),
+                       .lsu_read_valid(lsu_read_ready[i]),
+                       .lsu_read_data(lsu_read_data[i]),
+                       // Read interface - Memory side
+                       .mem_read_valid(data_mem_read_valid[i]),
+                       .mem_read_address(data_mem_read_address[i]),
+                       .mem_read_ready(data_mem_read_ready[i]),
+                       .mem_read_data(data_mem_read_data[i]),
+                       // Write interface - LSU side (per thread)
+                       .lsu_write_address(lsu_write_address[i]),
+                       .lsu_write_request(lsu_write_valid[i]),
+                       .lsu_write_data(lsu_write_data[i]),
+                       .lsu_write_valid(lsu_write_ready[i]),
+                       // Write interface - Memory side (new)
+                       .mem_write_valid(data_mem_write_valid[i]),
+                       .mem_write_address(data_mem_write_address[i]),
+                       .mem_write_data(data_mem_write_data[i]),
+                       .mem_write_ready(data_mem_write_ready[i])
+                   );
 
             // Register File
             registers #(

@@ -5,64 +5,89 @@
 // > Retrieves the instruction at the current PC from program memory via instruction cache
 // > Each core has its own fetcher and instruction cache
 module fetcher #(
-    parameter PROGRAM_MEM_ADDR_BITS = 8,
-    parameter PROGRAM_MEM_DATA_BITS = 16,
-    parameter CACHE_SIZE = 16  // Cache size, must be a power of 2
-) (
-    input wire clk,
-    input wire reset,
+        parameter PROGRAM_MEM_ADDR_BITS = 8,
+        parameter PROGRAM_MEM_DATA_BITS = 16,
+        parameter CACHE_SIZE = 16  // Cache size, must be a power of 2
+    ) (
+        input wire clk,
+        input wire reset,
 
-    // Execution State
-    input wire [2:0] core_state,
-    input wire [7:0] current_pc,
+        // Execution State
+        input wire [2:0] core_state,
+        input wire [7:0] current_pc,
 
-    // Program Memory (connects to memory through cache)
-    output wire mem_read_valid,
-    output wire [PROGRAM_MEM_ADDR_BITS-1:0] mem_read_address,
-    input wire mem_read_ready,
-    input wire [PROGRAM_MEM_DATA_BITS-1:0] mem_read_data,
+        // Program Memory (connects to memory through cache)
+        output wire mem_read_valid,
+        output wire [PROGRAM_MEM_ADDR_BITS-1:0] mem_read_address,
+        input wire mem_read_ready,
+        input wire [PROGRAM_MEM_DATA_BITS-1:0] mem_read_data,
 
-    // Fetcher Output
-    output reg [2:0] fetcher_state,
-    output reg [PROGRAM_MEM_DATA_BITS-1:0] instruction
-);
+        // Fetcher Output
+        output reg [2:0] fetcher_state,
+        output reg [PROGRAM_MEM_DATA_BITS-1:0] instruction,
+
+        // Cache performance statistics output
+        output wire [31:0] cache_hit_count,
+        output wire [31:0] cache_miss_count,
+        output wire [31:0] cache_total_requests,
+        output wire [31:0] cache_memory_wait_cycles
+    );
     localparam IDLE = 3'b000,
-        FETCHING = 3'b001,
-        FETCHED = 3'b010;
+               FETCHING = 3'b001,
+               FETCHED = 3'b010;
 
     // Interface between instruction cache and fetcher
     reg cache_read_request;
     wire cache_read_valid;
     wire [PROGRAM_MEM_DATA_BITS-1:0] cache_read_data;
 
+    // Cache performance statistics (internal wires)
+    wire [31:0] internal_cache_hit_count;
+    wire [31:0] internal_cache_miss_count;
+    wire [31:0] internal_cache_total_requests;
+    wire [31:0] internal_cache_memory_wait_cycles;
+
+    // Assign internal signals to output ports
+    assign cache_hit_count = internal_cache_hit_count;
+    assign cache_miss_count = internal_cache_miss_count;
+    assign cache_total_requests = internal_cache_total_requests;
+    assign cache_memory_wait_cycles = internal_cache_memory_wait_cycles;
+
     // Instantiate instruction cache
     icache #(
-        .PROGRAM_MEM_ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
-        .PROGRAM_MEM_DATA_BITS(PROGRAM_MEM_DATA_BITS),
-        .CACHE_SIZE(CACHE_SIZE)
-    ) icache (
-        .clk(clk),
-        .reset(reset),
+               .PROGRAM_MEM_ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
+               .PROGRAM_MEM_DATA_BITS(PROGRAM_MEM_DATA_BITS),
+               .CACHE_SIZE(CACHE_SIZE)
+           ) icache (
+               .clk(clk),
+               .reset(reset),
 
-        // Fetcher side interface
-        .fetcher_address(current_pc),
-        .fetcher_read_request(cache_read_request),
-        .fetcher_read_valid(cache_read_valid),
-        .fetcher_read_data(cache_read_data),
+               // Fetcher side interface
+               .fetcher_address(current_pc),
+               .fetcher_read_request(cache_read_request),
+               .fetcher_read_valid(cache_read_valid),
+               .fetcher_read_data(cache_read_data),
 
-        // Memory side interface
-        .mem_read_valid(mem_read_valid),
-        .mem_read_address(mem_read_address),
-        .mem_read_ready(mem_read_ready),
-        .mem_read_data(mem_read_data)
-    );
+               // Memory side interface
+               .mem_read_valid(mem_read_valid),
+               .mem_read_address(mem_read_address),
+               .mem_read_ready(mem_read_ready),
+               .mem_read_data(mem_read_data),
+
+               // Performance statistics
+               .cache_hit_count(internal_cache_hit_count),
+               .cache_miss_count(internal_cache_miss_count),
+               .cache_total_requests(internal_cache_total_requests),
+               .cache_memory_wait_cycles(internal_cache_memory_wait_cycles)
+           );
 
     always @(posedge clk) begin
         if (reset) begin
             fetcher_state <= IDLE;
             cache_read_request <= 0;
             instruction <= {PROGRAM_MEM_DATA_BITS{1'b0}};
-        end else begin
+        end
+        else begin
             case (fetcher_state)
                 IDLE: begin
                     // Start fetching when core_state = FETCH
