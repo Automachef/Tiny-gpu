@@ -46,15 +46,41 @@ module scheduler #(
                UPDATE = 3'b110,      // Update registers, NZP, and PC
                DONE = 3'b111;        // Done executing this block
 
+    // Performance counters for each pipeline stage
+    reg [31:0] idle_cycles;
+    reg [31:0] fetch_cycles;
+    reg [31:0] decode_cycles;
+    reg [31:0] request_cycles;
+    reg [31:0] wait_cycles;
+    reg [31:0] execute_cycles;
+    reg [31:0] update_cycles;
+    reg [31:0] total_cycles;
+    reg [31:0] total_instructions;
+
     always @(posedge clk) begin
         if (reset) begin
             current_pc <= 0;
             core_state <= IDLE;
             done <= 0;
+            // Reset performance counters
+            idle_cycles <= 0;
+            fetch_cycles <= 0;
+            decode_cycles <= 0;
+            request_cycles <= 0;
+            wait_cycles <= 0;
+            execute_cycles <= 0;
+            update_cycles <= 0;
+            total_cycles <= 0;
+            total_instructions <= 0;
         end
         else begin
+            // Increment total cycle counter
+            total_cycles <= total_cycles + 1;
+
+            // Increment stage-specific counters
             case (core_state)
                 IDLE: begin
+                    idle_cycles <= idle_cycles + 1;
                     // Here after reset (before kernel is launched, or after previous block has been processed)
                     if (start) begin
                         // Start by fetching the next instruction for this block based on PC
@@ -62,22 +88,26 @@ module scheduler #(
                     end
                 end
                 FETCH: begin
+                    fetch_cycles <= fetch_cycles + 1;
                     // Move on once fetcher_state = FETCHED
                     if (fetcher_state == 3'b010) begin
                         core_state <= DECODE;
                     end
                 end
                 DECODE: begin
+                    decode_cycles <= decode_cycles + 1;
                     // Decode is synchronous so we move on after one cycle
                     core_state <= REQUEST;
                 end
                 REQUEST: begin
+                    request_cycles <= request_cycles + 1;
                     // Request is synchronous so we move on after one cycle
                     core_state <= WAIT;
                 end
                 WAIT: begin
                     // Wait for all LSUs to finish their request before continuing
                     automatic reg any_lsu_waiting;
+                    wait_cycles <= wait_cycles + 1;
                     any_lsu_waiting = 1'b0;
                     for (int i = 0; i < thread_count; i++) begin
                         // Make sure no lsu_state = REQUESTING or WAITING
@@ -93,18 +123,34 @@ module scheduler #(
                     end
                 end
                 EXECUTE: begin
+                    execute_cycles <= execute_cycles + 1;
                     // Execute is synchronous so we move on after one cycle
                     core_state <= UPDATE;
                 end
                 UPDATE: begin
+                    update_cycles <= update_cycles + 1;
                     if (decoded_ret) begin
                         // If we reach a RET instruction, this block is done executing
                         done <= 1;
                         core_state <= DONE;
+                        // Print performance statistics when done
+                        $display("=== SCHEDULER PERFORMANCE STATISTICS ===");
+                        $display("Total Cycles: %d", total_cycles);
+                        $display("Total Instructions: %d", total_instructions);
+                        $display("IDLE cycles: %d (%.1f%%)", idle_cycles, (idle_cycles * 100.0) / total_cycles);
+                        $display("FETCH cycles: %d (%.1f%%)", fetch_cycles, (fetch_cycles * 100.0) / total_cycles);
+                        $display("DECODE cycles: %d (%.1f%%)", decode_cycles, (decode_cycles * 100.0) / total_cycles);
+                        $display("REQUEST cycles: %d (%.1f%%)", request_cycles, (request_cycles * 100.0) / total_cycles);
+                        $display("WAIT cycles: %d (%.1f%%)", wait_cycles, (wait_cycles * 100.0) / total_cycles);
+                        $display("EXECUTE cycles: %d (%.1f%%)", execute_cycles, (execute_cycles * 100.0) / total_cycles);
+                        $display("UPDATE cycles: %d (%.1f%%)", update_cycles, (update_cycles * 100.0) / total_cycles);
+                        $display("Average cycles per instruction: %.2f", total_cycles * 1.0 / total_instructions);
+                        $display("========================================");
                     end
                     else begin
                         // TODO: Branch divergence. For now assume all next_pc converge
                         current_pc <= next_pc[thread_count-1];
+                        total_instructions <= total_instructions + 1;
 
                         // Update is synchronous so we move on after one cycle
                         core_state <= FETCH;
