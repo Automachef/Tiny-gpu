@@ -84,6 +84,39 @@ module core #(
     wire [31:0] cache_total_requests;
     wire [31:0] cache_memory_wait_cycles;
 
+    // LSU performance statistics
+    wire [31:0] lsu_read_requests [THREADS_PER_BLOCK-1:0];
+    wire [31:0] lsu_write_requests [THREADS_PER_BLOCK-1:0];
+    wire [31:0] lsu_wait_cycles [THREADS_PER_BLOCK-1:0];
+
+    // Dcache performance statistics
+    wire [31:0] dcache_read_hits [THREADS_PER_BLOCK-1:0];
+    wire [31:0] dcache_read_misses [THREADS_PER_BLOCK-1:0];
+    wire [31:0] dcache_write_requests [THREADS_PER_BLOCK-1:0];
+    wire [31:0] dcache_memory_wait_cycles [THREADS_PER_BLOCK-1:0];
+
+    // Aggregated LSU statistics
+    wire [31:0] total_lsu_read_requests;
+    wire [31:0] total_lsu_write_requests;
+    wire [31:0] total_lsu_wait_cycles;
+
+    // Aggregated Dcache statistics
+    wire [31:0] total_dcache_read_hits;
+    wire [31:0] total_dcache_read_misses;
+    wire [31:0] total_dcache_write_requests;
+    wire [31:0] total_dcache_memory_wait_cycles;
+
+    // Aggregate LSU statistics across all threads
+    assign total_lsu_read_requests = lsu_read_requests[0] + lsu_read_requests[1] + lsu_read_requests[2] + lsu_read_requests[3];
+    assign total_lsu_write_requests = lsu_write_requests[0] + lsu_write_requests[1] + lsu_write_requests[2] + lsu_write_requests[3];
+    assign total_lsu_wait_cycles = lsu_wait_cycles[0] + lsu_wait_cycles[1] + lsu_wait_cycles[2] + lsu_wait_cycles[3];
+
+    // Aggregate Dcache statistics across all threads
+    assign total_dcache_read_hits = dcache_read_hits[0] + dcache_read_hits[1] + dcache_read_hits[2] + dcache_read_hits[3];
+    assign total_dcache_read_misses = dcache_read_misses[0] + dcache_read_misses[1] + dcache_read_misses[2] + dcache_read_misses[3];
+    assign total_dcache_write_requests = dcache_write_requests[0] + dcache_write_requests[1] + dcache_write_requests[2] + dcache_write_requests[3];
+    assign total_dcache_memory_wait_cycles = dcache_memory_wait_cycles[0] + dcache_memory_wait_cycles[1] + dcache_memory_wait_cycles[2] + dcache_memory_wait_cycles[3];
+
     // Fetcher
     fetcher #(
                 .PROGRAM_MEM_ADDR_BITS(PROGRAM_MEM_ADDR_BITS),
@@ -149,7 +182,14 @@ module core #(
                   .cache_hit_count(cache_hit_count),
                   .cache_miss_count(cache_miss_count),
                   .cache_total_requests(cache_total_requests),
-                  .cache_memory_wait_cycles(cache_memory_wait_cycles)
+                  .cache_memory_wait_cycles(cache_memory_wait_cycles),
+                  .total_lsu_read_requests(total_lsu_read_requests),
+                  .total_lsu_write_requests(total_lsu_write_requests),
+                  .total_lsu_wait_cycles(total_lsu_wait_cycles),
+                  .total_dcache_read_hits(total_dcache_read_hits),
+                  .total_dcache_read_misses(total_dcache_read_misses),
+                  .total_dcache_write_requests(total_dcache_write_requests),
+                  .total_dcache_memory_wait_cycles(total_dcache_memory_wait_cycles)
               );
 
     assign done = (thread_count == 0) ? 1'b1 : scheduler_done;
@@ -157,7 +197,9 @@ module core #(
     // Dedicated ALU, LSU, registers, & PC unit for each thread this core has capacity for
     genvar i;
     generate
-        for (i = 0; i < THREADS_PER_BLOCK; i = i + 1) begin : threads
+        for (i = 0;
+                i < THREADS_PER_BLOCK;
+                i = i + 1) begin : threads
             // ALU
             alu alu_instance (
                     .clk(clk),
@@ -169,7 +211,8 @@ module core #(
                     .rs(rs[i]),
                     .rt(rt[i]),
                     .alu_out(alu_out[i])
-                );
+                )
+                ;
 
             // Define the write interface from LSU to dcache (per thread)
             wire [THREADS_PER_BLOCK-1:0] lsu_write_valid;
@@ -198,7 +241,10 @@ module core #(
                     .rs(rs[i]),
                     .rt(rt[i]),
                     .lsu_state(lsu_state[i]),
-                    .lsu_out(lsu_out[i])
+                    .lsu_out(lsu_out[i]),
+                    .lsu_read_requests(lsu_read_requests[i]),
+                    .lsu_write_requests(lsu_write_requests[i]),
+                    .lsu_wait_cycles(lsu_wait_cycles[i])
                 );
 
             // Data Cache (supports both read and write operations with write-through policy)
@@ -228,7 +274,12 @@ module core #(
                        .mem_write_valid(data_mem_write_valid[i]),
                        .mem_write_address(data_mem_write_address[i]),
                        .mem_write_data(data_mem_write_data[i]),
-                       .mem_write_ready(data_mem_write_ready[i])
+                       .mem_write_ready(data_mem_write_ready[i]),
+                       // Performance statistics
+                       .dcache_read_hits(dcache_read_hits[i]),
+                       .dcache_read_misses(dcache_read_misses[i]),
+                       .dcache_write_requests(dcache_write_requests[i]),
+                       .dcache_memory_wait_cycles(dcache_memory_wait_cycles[i])
                    );
 
             // Register File

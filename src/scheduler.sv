@@ -41,7 +41,18 @@ module scheduler #(
         input wire [31:0] cache_hit_count,
         input wire [31:0] cache_miss_count,
         input wire [31:0] cache_total_requests,
-        input wire [31:0] cache_memory_wait_cycles
+        input wire [31:0] cache_memory_wait_cycles,
+
+        // LSU performance statistics input
+        input wire [31:0] total_lsu_read_requests,
+        input wire [31:0] total_lsu_write_requests,
+        input wire [31:0] total_lsu_wait_cycles,
+
+        // Dcache performance statistics input
+        input wire [31:0] total_dcache_read_hits,
+        input wire [31:0] total_dcache_read_misses,
+        input wire [31:0] total_dcache_write_requests,
+        input wire [31:0] total_dcache_memory_wait_cycles
     );
     localparam IDLE = 3'b000, // Waiting to start
                FETCH = 3'b001,       // Fetch instructions from program memory
@@ -163,6 +174,29 @@ module scheduler #(
                         end
                         $display("- Memory wait cycles: %d", cache_memory_wait_cycles);
                         $display("- Average wait per miss: %.1f cycles", cache_miss_count > 0 ? (cache_memory_wait_cycles * 1.0) / cache_miss_count : 0.0);
+                        $display("--- WAIT STAGE ANALYSIS ---");
+                        $display("WAIT takes %.1f%% of total time, detailed analysis:", (wait_cycles * 100.0) / total_cycles);
+                        $display("LSU Memory Access Statistics:");
+                        $display("- Total read requests: %d", total_lsu_read_requests);
+                        $display("- Total write requests: %d", total_lsu_write_requests);
+                        $display("- Total memory requests: %d", total_lsu_read_requests + total_lsu_write_requests);
+                        $display("- LSU wait cycles: %d", total_lsu_wait_cycles);
+                        if ((total_lsu_read_requests + total_lsu_write_requests) > 0) begin
+                            $display("- Average wait per request: %.1f cycles", (total_lsu_wait_cycles * 1.0) / (total_lsu_read_requests + total_lsu_write_requests));
+                        end
+                        $display("Data Cache Statistics:");
+                        $display("- Read hits: %d", total_dcache_read_hits);
+                        $display("- Read misses: %d", total_dcache_read_misses);
+                        $display("- Write requests: %d", total_dcache_write_requests);
+                        if ((total_dcache_read_hits + total_dcache_read_misses) > 0) begin
+                            $display("- Read hit rate: %.1f%%", (total_dcache_read_hits * 100.0) / (total_dcache_read_hits + total_dcache_read_misses));
+                            $display("- Read miss rate: %.1f%%", (total_dcache_read_misses * 100.0) / (total_dcache_read_hits + total_dcache_read_misses));
+                        end
+                        $display("- Dcache memory wait cycles: %d", total_dcache_memory_wait_cycles);
+                        $display("WAIT stage breakdown:");
+                        $display("- Instruction fetch waits: %d cycles", cache_memory_wait_cycles);
+                        $display("- Data memory waits: %d cycles", total_lsu_wait_cycles);
+                        $display("- Dcache memory waits: %d cycles", total_dcache_memory_wait_cycles);
                         $display("========================================");
                     end
                     else begin
